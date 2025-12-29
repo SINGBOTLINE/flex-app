@@ -31,7 +31,7 @@ button { margin: 10px; padding: 12px 24px; font-size: 16px; border-radius: 6px; 
 <div id="logOutput"></div>
 
 <script>
-const ADMIN_USERID = "Ua48c35a3cd7641afee1d85c317032ad5"; // ใส่ userId แอดมินจริง
+const ADMIN_USERID = "Ua48c35a3cd7641afee1d85c317032ad5"; // ใส่ UserId แอดมินจริง
 let currentUserId = "";
 let whitelist = JSON.parse(localStorage.getItem("whitelist") || "[]");
 let requests = JSON.parse(localStorage.getItem("requests") || "[]");
@@ -46,7 +46,6 @@ async function initLiff(){
     currentUserId = profile.userId;
     log("LIFF Init สำเร็จ! UserId: "+currentUserId);
 
-    // ถ้าเป็น admin
     if(currentUserId === ADMIN_USERID){
       document.querySelector(".admin-only").style.display = "block";
     }
@@ -55,18 +54,18 @@ async function initLiff(){
 }
 
 // ปุ่มโชว์ UserId
-document.getElementById("btnShowUserId").addEventListener("click", async ()=>{
+document.getElementById("btnShowUserId").addEventListener("click", ()=>{
   if(!currentUserId) return alert("ไม่สามารถดึง UserId ได้");
   document.getElementById("myUserId").innerText = "🆔 UserId ของคุณ: "+currentUserId;
   log("โชว์ UserId: "+currentUserId);
 });
 
-// ปุ่มเพิ่มเพื่อน admin (ลิงก์ไป LINE)
+// ปุ่มเพิ่มเพื่อน admin
 document.getElementById("btnAddFriend").addEventListener("click", ()=>{
   window.open("http://line.me/ti/p/~mc357.com","_blank"); // <-- แอดไลน์คุณ
 });
 
-// ปุ่มส่งคำขอ
+// ปุ่มส่งคำขอผู้ใช้ทั่วไป
 document.getElementById("btnSendRequest").addEventListener("click", ()=>{
   if(!currentUserId) return alert("ไม่สามารถส่งคำขอได้");
   requests.push({userId: currentUserId});
