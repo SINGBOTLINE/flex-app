@@ -3,164 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flex + Admin + Firebase</title>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<title>Flex LIFF App</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
-body { font-family: sans-serif; background:#111; color:#fff; padding:20px; }
-input, button { font-size:16px; padding:10px; border-radius:6px; border:none; margin-top:10px; }
-button { cursor:pointer; }
-button.addLine { background:#00c300;color:#fff; }
-.admin-panel { background:rgba(0,0,0,0.6); padding:20px; margin-top:20px; border-radius:10px; }
-#logOutput, #myUserId { color:#0f0; white-space: pre-line; margin-top:10px; }
-img.qrcode { width:200px; border:2px solid #fff; border-radius:10px; margin-top:10px; }
-.flex-row { display:flex; gap:10px; align-items:center; margin-top:10px; }
-.flex-row input { flex:1; }
+body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
+button { margin: 10px; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
+#myUserId, #logOutput { margin-top: 10px; color: #0f0; text-align: left; white-space: pre-line; }
+.admin-only { display: none; }
 </style>
 </head>
 <body>
 
-<h2>Flex Generator</h2>
-<input id="genInput" placeholder="วาง: ImageURL + เว้นวรรค + LINE ID ของคนอื่น">
-<button onclick="sendFlex()">สร้างและแชร์ Flex</button>
+<h2>Flex LIFF App</h2>
 
-<h3>โชว์ UserId ของตัวเอง</h3>
-<button onclick="showMyUserId()">กดเพื่อดู UserId ของคุณ</button>
+<button id="btnShowUserId">โชว์ UserId ของตัวเอง</button>
 <div id="myUserId"></div>
 
-<h3>แอดแอดมิน</h3>
-<button class="addLine" onclick="addMeLine()">แอดไลน์แอดมิน</button>
-<img class="qrcode" src="https://img2.pic.in.th/IMG_1081.jpeg" alt="แอดไลน์">
+<button id="btnAddFriend">เพิ่มเพื่อนแอดมิน</button>
 
-<div class="admin-panel">
-  <h3>Admin Panel</h3>
-  <h4>Whitelist</h4>
-  <div class="flex-row" id="whitelistControls" style="display:none;">
-    <input id="wlName" placeholder="ชื่อผู้ใช้ LINE">
-    <input id="wlUserId" placeholder="userId ของ LIFF">
-    <button onclick="addWhitelist()">เพิ่ม</button>
-    <button onclick="removeWhitelist()">ลบ</button>
-  </div>
-  <div id="list"></div>
-  <h3>Log (เฉพาะ admin)</h3>
-  <div id="logOutput"></div>
+<button id="btnSendRequest">ส่งคำขอใช้งาน</button>
+
+<div class="admin-only">
+<h3>Admin Panel</h3>
+<button id="btnShareFlex">แชร์ Flex</button>
 </div>
 
+<div id="logOutput"></div>
+
 <script>
-// ================== Firebase Config ==================
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-// ================== LIFF ==================
-const ADMIN = "Ua48c35a3cd7641afee1d85c317032ad5"; // ใส่ userId ของ admin
+const ADMIN_USERID = "Ua48c35a3cd7641afee1d85c317032ad5"; // ใส่ userId แอดมินจริง
 let currentUserId = "";
-let whitelist = [];
-const docRef = db.collection("appData").doc("whitelistDoc");
+let whitelist = JSON.parse(localStorage.getItem("whitelist") || "[]");
+let requests = JSON.parse(localStorage.getItem("requests") || "[]");
 
-// Log
 function log(msg){ document.getElementById("logOutput").innerText += msg + "\n"; }
-function logError(msg){ document.getElementById("logOutput").innerText += "❌ " + msg + "\n"; }
+function logError(msg){ document.getElementById("logOutput").innerText += "❌ "+msg+"\n"; }
 
-// Fetch whitelist
-async function fetchWhitelist(){
-  const docSnap = await docRef.get();
-  if(docSnap.exists){
-    whitelist = docSnap.data().whitelist || [];
-  } else {
-    whitelist = [];
-    await docRef.set({whitelist: []});
-  }
-  renderList();
-}
-
-// Render whitelist
-function renderList(){
-  const view = whitelist.map(w=>`👤 ${w.name}\n🆔 ${w.userId}`).join("\n\n");
-  document.getElementById("list").innerText = view || "ยังไม่มี whitelist";
-  document.getElementById("whitelistControls").style.display = (currentUserId === ADMIN) ? "flex" : "none";
-}
-
-// Add whitelist
-async function addWhitelist(){
-  if(currentUserId!==ADMIN) return alert("⛔ เฉพาะ admin เพิ่มได้");
-  const name=document.getElementById("wlName").value.trim();
-  const userId=document.getElementById("wlUserId").value.trim();
-  if(!name || !userId) return alert("❌ ใส่ชื่อและ userId");
-  const docSnap = await docRef.get();
-  let list = docSnap.exists ? docSnap.data().whitelist : [];
-  if(list.some(u=>u.userId===userId)) return alert("❌ userId มีแล้ว");
-  list.push({name,userId});
-  await docRef.set({whitelist:list});
-  whitelist = list;
-  renderList();
-  log(`✅ เพิ่ม whitelist: ${name} (${userId})`);
-}
-
-// Remove whitelist
-async function removeWhitelist(){
-  if(currentUserId!==ADMIN) return alert("⛔ เฉพาะ admin ลบได้");
-  const userId=document.getElementById("wlUserId").value.trim();
-  if(!userId) return alert("❌ ใส่ userId");
-  const docSnap = await docRef.get();
-  let list = docSnap.exists ? docSnap.data().whitelist : [];
-  list = list.filter(u=>u.userId!==userId);
-  await docRef.set({whitelist:list});
-  whitelist = list;
-  renderList();
-  log(`🗑 ลบ whitelist: ${userId}`);
-}
-
-// Send Flex
-async function sendFlex(){
-  if(!liff.isInClient()) return alert("⚠ เปิดผ่าน LINE");
+async function initLiff(){
   try{
+    await liff.init({ liffId: "2008621627-1eN2VA2x" }); // <-- แก้ LIFF ID ของคุณ
     const profile = await liff.getProfile();
     currentUserId = profile.userId;
-    log("UserId ปัจจุบัน: "+currentUserId);
+    log("LIFF Init สำเร็จ! UserId: "+currentUserId);
 
-    const allowed = (currentUserId===ADMIN) || whitelist.some(w=>w.userId===currentUserId);
-    if(!allowed){ logError("⛔ คุณไม่มีสิทธิ์แชร์ Flex"); return alert("⛔ คุณไม่มีสิทธิ์แชร์"); }
+    // ถ้าเป็น admin
+    if(currentUserId === ADMIN_USERID){
+      document.querySelector(".admin-only").style.display = "block";
+    }
 
-    const raw = document.getElementById("genInput").value.trim();
-    const parts = raw.split(/ (.+)/);
-    if(parts.length!==2) return alert("❌ format ผิด");
-    const [imageUrl,lineId]=parts;
-
-    const flexMsg={
-      type:"flex", altText:"Flex Message",
-      contents:{type:"carousel",contents:[{type:"bubble",size:"giga",body:{type:"box",layout:"vertical",contents:[{type:"image",url:imageUrl,size:"full",aspectMode:"cover",aspectRatio:"2:3",gravity:"top",action:{type:"uri",label:"action",uri:`http://line.me/ti/p/~${lineId}`}}],paddingAll:"0px",borderWidth:"4px",borderColor:"#000",cornerRadius:"sm"}}]}
-    };
-    await liff.shareTargetPicker([flexMsg]);
-    log("✨ แชร์ Flex สำเร็จ!");
-    alert("✨ แชร์ Flex สำเร็จ!");
-  }catch(e){ logError("❌ แชร์ Flex ไม่สำเร็จ: "+e); }
+  }catch(e){ logError("LIFF Init ไม่สำเร็จ: "+e); }
 }
 
-// Show UserId
-async function showMyUserId(){
-  if(!liff.isInClient()) return alert("⚠ เปิดผ่าน LINE");
-  const profile = await liff.getProfile();
-  currentUserId=profile.userId;
-  document.getElementById("myUserId").innerText=`🆔 UserId ของคุณคือ: ${currentUserId}`;
+// ปุ่มโชว์ UserId
+document.getElementById("btnShowUserId").addEventListener("click", async ()=>{
+  if(!currentUserId) return alert("ไม่สามารถดึง UserId ได้");
+  document.getElementById("myUserId").innerText = "🆔 UserId ของคุณ: "+currentUserId;
   log("โชว์ UserId: "+currentUserId);
-  fetchWhitelist();
-}
+});
 
-// แอดไลน์แอดมิน
-function addMeLine(){ window.open("http://line.me/ti/p/~mc357.com","_blank"); }
+// ปุ่มเพิ่มเพื่อน admin (ลิงก์ไป LINE)
+document.getElementById("btnAddFriend").addEventListener("click", ()=>{
+  window.open("http://line.me/ti/p/~mc357.com","_blank"); // <-- แอดไลน์คุณ
+});
 
-// Init LIFF
-liff.init({liffId:"2008621627-1eN2VA2x"}).then(showMyUserId);
+// ปุ่มส่งคำขอ
+document.getElementById("btnSendRequest").addEventListener("click", ()=>{
+  if(!currentUserId) return alert("ไม่สามารถส่งคำขอได้");
+  requests.push({userId: currentUserId});
+  localStorage.setItem("requests",JSON.stringify(requests));
+  alert("📨 ส่งคำขอเรียบร้อยแล้ว");
+  log("ส่งคำขอจาก UserId: "+currentUserId);
+});
 
+// ปุ่มแชร์ Flex (เฉพาะ admin)
+document.getElementById("btnShareFlex").addEventListener("click", async ()=>{
+  if(currentUserId !== ADMIN_USERID) return alert("⛔ เฉพาะ admin ใช้งานได้");
+  const imageUrl = prompt("ใส่ URL ของรูปภาพ Flex");
+  const lineId = prompt("ใส่ LINE ID ผู้รับ");
+
+  if(!imageUrl || !lineId) return alert("❌ ใส่ข้อมูลไม่ครบ");
+
+  const flexMsg = {
+    type: "flex",
+    altText: "Flex Message",
+    contents: {
+      type: "carousel",
+      contents: [{
+        type: "bubble",
+        size: "giga",
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents:[{
+            type: "image",
+            url: imageUrl,
+            size: "full",
+            aspectMode: "cover",
+            aspectRatio: "2:3",
+            gravity: "top",
+            action: { type:"uri", label:"action", uri:`http://line.me/ti/p/~${lineId}` }
+          }],
+          paddingAll:"0px",
+          borderWidth:"4px",
+          borderColor:"#000",
+          cornerRadius:"sm"
+        }
+      }]
+    }
+  };
+
+  try{
+    await liff.shareTargetPicker([flexMsg]);
+    alert("✨ แชร์ Flex สำเร็จ!");
+    log("แชร์ Flex สำเร็จไป "+lineId);
+  }catch(e){ logError("แชร์ Flex ไม่สำเร็จ: "+e); }
+});
+
+initLiff();
 </script>
+
 </body>
 </html>
