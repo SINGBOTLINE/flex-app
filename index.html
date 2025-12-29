@@ -3,53 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flex LIFF App</title>
+<title>LIFF Flex App (No Token)</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
 body { font-family: sans-serif; background: #111; color: #fff; text-align: center; padding: 20px; }
 button { margin: 10px; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
 #myUserId, #logOutput { margin-top: 10px; color: #0f0; text-align: left; white-space: pre-line; }
-.admin-only { display: none; }
 </style>
 </head>
 <body>
 
-<h2>Flex LIFF App</h2>
+<h2>LIFF Flex App (Client-side)</h2>
 
 <button id="btnShowUserId">โชว์ UserId ของตัวเอง</button>
 <div id="myUserId"></div>
 
 <button id="btnAddFriend">เพิ่มเพื่อนแอดมิน</button>
 
-<button id="btnSendRequest">ส่งคำขอใช้งาน</button>
-
-<div class="admin-only">
-<h3>Admin Panel</h3>
 <button id="btnShareFlex">แชร์ Flex</button>
-</div>
+
+<button id="btnSendRequest">ส่งคำขอใช้งาน</button>
 
 <div id="logOutput"></div>
 
 <script>
-const ADMIN_USERID = "Ua48c35a3cd7641afee1d85c317032ad5"; // ใส่ UserId แอดมินจริง
 let currentUserId = "";
-let whitelist = JSON.parse(localStorage.getItem("whitelist") || "[]");
-let requests = JSON.parse(localStorage.getItem("requests") || "[]");
+let requests = JSON.parse(localStorage.getItem("requests") || []);
 
 function log(msg){ document.getElementById("logOutput").innerText += msg + "\n"; }
 function logError(msg){ document.getElementById("logOutput").innerText += "❌ "+msg+"\n"; }
 
 async function initLiff(){
   try{
-    await liff.init({ liffId: "2008621627-1eN2VA2x" }); // <-- แก้ LIFF ID ของคุณ
+    await liff.init({ liffId: "2008621627-1eN2VA2x" }); // <-- แก้เป็น LIFF ID ของคุณ
     const profile = await liff.getProfile();
     currentUserId = profile.userId;
     log("LIFF Init สำเร็จ! UserId: "+currentUserId);
-
-    if(currentUserId === ADMIN_USERID){
-      document.querySelector(".admin-only").style.display = "block";
-    }
-
   }catch(e){ logError("LIFF Init ไม่สำเร็จ: "+e); }
 }
 
@@ -65,57 +54,52 @@ document.getElementById("btnAddFriend").addEventListener("click", ()=>{
   window.open("http://line.me/ti/p/~mc357.com","_blank"); // <-- แอดไลน์คุณ
 });
 
-// ปุ่มส่งคำขอผู้ใช้ทั่วไป
-document.getElementById("btnSendRequest").addEventListener("click", ()=>{
-  if(!currentUserId) return alert("ไม่สามารถส่งคำขอได้");
-  requests.push({userId: currentUserId});
-  localStorage.setItem("requests",JSON.stringify(requests));
-  alert("📨 ส่งคำขอเรียบร้อยแล้ว");
-  log("ส่งคำขอจาก UserId: "+currentUserId);
-});
-
-// ปุ่มแชร์ Flex (เฉพาะ admin)
+// ปุ่มแชร์ Flex (ผู้ใช้เลือกเอง)
 document.getElementById("btnShareFlex").addEventListener("click", async ()=>{
-  if(currentUserId !== ADMIN_USERID) return alert("⛔ เฉพาะ admin ใช้งานได้");
   const imageUrl = prompt("ใส่ URL ของรูปภาพ Flex");
   const lineId = prompt("ใส่ LINE ID ผู้รับ");
-
   if(!imageUrl || !lineId) return alert("❌ ใส่ข้อมูลไม่ครบ");
 
   const flexMsg = {
     type: "flex",
     altText: "Flex Message",
     contents: {
-      type: "carousel",
-      contents: [{
-        type: "bubble",
-        size: "giga",
-        body: {
-          type: "box",
-          layout: "vertical",
-          contents:[{
-            type: "image",
-            url: imageUrl,
-            size: "full",
-            aspectMode: "cover",
-            aspectRatio: "2:3",
-            gravity: "top",
-            action: { type:"uri", label:"action", uri:`http://line.me/ti/p/~${lineId}` }
-          }],
-          paddingAll:"0px",
-          borderWidth:"4px",
-          borderColor:"#000",
-          cornerRadius:"sm"
-        }
-      }]
+      type: "bubble",
+      size: "giga",
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents:[{
+          type: "image",
+          url: imageUrl,
+          size: "full",
+          aspectMode: "cover",
+          aspectRatio: "2:3",
+          gravity: "top",
+          action: { type:"uri", label:"action", uri:`http://line.me/ti/p/~${lineId}` }
+        }],
+        paddingAll:"0px",
+        borderWidth:"4px",
+        borderColor:"#000",
+        cornerRadius:"sm"
+      }
     }
   };
 
   try{
     await liff.shareTargetPicker([flexMsg]);
     alert("✨ แชร์ Flex สำเร็จ!");
-    log("แชร์ Flex สำเร็จไป "+lineId);
+    log("แชร์ Flex ไป "+lineId);
   }catch(e){ logError("แชร์ Flex ไม่สำเร็จ: "+e); }
+});
+
+// ปุ่มส่งคำขอผู้ใช้ทั่วไป (เก็บ localStorage)
+document.getElementById("btnSendRequest").addEventListener("click", ()=>{
+  if(!currentUserId) return alert("ไม่สามารถส่งคำขอได้");
+  requests.push({userId: currentUserId});
+  localStorage.setItem("requests",JSON.stringify(requests));
+  alert("📨 ส่งคำขอเรียบร้อยแล้ว (เก็บเฉพาะเครื่องคุณ)");
+  log("ส่งคำขอจาก UserId: "+currentUserId);
 });
 
 initLiff();
